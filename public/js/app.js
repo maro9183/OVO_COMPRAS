@@ -254,6 +254,8 @@ window.addEventListener('DOMContentLoaded', async () => {
       document.getElementById('usuarios-table-body').innerHTML = data.map(u => `<tr>
         <td>${u.id}</td>
         <td>${u.nombre}</td>
+        <td>${u.correo || '-'}</td>
+        <td>${u.telefono || '-'}</td>
         <td>${u.username || '-'}</td>
         <td>${u.rol}</td>
         <td>${u.sector?.nombre || '-'}</td>
@@ -609,6 +611,41 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  // User View Logic: List Full Width vs Split View
+  const toggleUserForm = (show, title = 'Nuevo Usuario') => {
+    const listPanel = document.getElementById('user-list-panel');
+    const formPanel = document.getElementById('user-form-panel');
+    const formTitle = document.getElementById('user-form-title');
+    
+    if (show) {
+      listPanel.style.gridColumn = 'auto';
+      formPanel.style.display = 'block';
+      if (formTitle) formTitle.textContent = title;
+    } else {
+      listPanel.style.gridColumn = 'span 2';
+      formPanel.style.display = 'none';
+      document.getElementById('new-usuario-form').reset();
+      document.getElementById('usuario-id').value = '';
+    }
+  };
+
+  document.getElementById('add-usuario-btn')?.addEventListener('click', () => {
+    toggleUserForm(true, 'Nuevo Usuario');
+  });
+
+  document.getElementById('cancel-user-btn')?.addEventListener('click', () => {
+    toggleUserForm(false);
+  });
+
+  // User Role Toggle for Categories
+  document.getElementById('usuario-rol')?.addEventListener('change', (e) => {
+    const isBuyer = (e.target.value === 'COMPRADOR' || e.target.value === 'ADMIN');
+    const categoriesGroup = document.getElementById('buyer-categories-group');
+    if (categoriesGroup) {
+      categoriesGroup.style.display = isBuyer ? 'block' : 'none';
+    }
+  });
+
   document.getElementById('new-usuario-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const id = document.getElementById('usuario-id').value;
@@ -619,6 +656,8 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     const body = {
       nombre: document.getElementById('usuario-nombre').value,
+      correo: document.getElementById('usuario-correo').value,
+      telefono: document.getElementById('usuario-telefono').value,
       username: document.getElementById('usuario-username').value,
       rol: document.getElementById('usuario-rol').value,
       puedeLoguearse: true,
@@ -631,8 +670,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     const endpoint = id ? `/usuarios/${id}` : '/usuarios';
     const res = await fetchApi(endpoint, { method, body: JSON.stringify(body) });
     if (res.ok) {
-      document.getElementById('new-usuario-form').reset();
-      document.getElementById('usuario-id').value = '';
+      toggleUserForm(false); // Hides and resets
       loadUsuariosTable();
     } else {
       const err = await res.json();
@@ -644,8 +682,11 @@ window.addEventListener('DOMContentLoaded', async () => {
     const res = await fetchApi(`/usuarios/${id}`);
     if (res.ok) {
       const u = await res.json();
+      toggleUserForm(true, 'Editar Usuario');
       document.getElementById('usuario-id').value = u.id;
       document.getElementById('usuario-nombre').value = u.nombre;
+      document.getElementById('usuario-correo').value = u.correo || '';
+      document.getElementById('usuario-telefono').value = u.telefono || '';
       document.getElementById('usuario-username').value = u.username;
       document.getElementById('usuario-rol').value = u.rol;
       document.getElementById('usuario-rol').dispatchEvent(new Event('change'));
@@ -1302,22 +1343,30 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('export-excel-btn')?.addEventListener('click', () => {
     if (!currentPedidoData) return;
     const rows = [
+      ['SOLICITUD DE PEDIDO MANTENIMIENTO'],
       ['Nro Pedido', currentPedidoData.numeroSolicitud],
-      ['Solicitante', currentPedidoData.solicitante?.nombre],
-      ['Fecha', currentPedidoData.fechaPedido],
-      ['Descripción', currentPedidoData.descripcion],
+      ['Solicitante', currentPedidoData.solicitante?.nombre || 'N/A'],
+      ['Sector', currentPedidoData.sector?.nombre || 'General'],
+      ['Fecha', new Date(currentPedidoData.fechaPedido).toLocaleDateString()],
+      ['Descripción', currentPedidoData.descripcion || ''],
       [],
-      ['Material', 'Cantidad', 'Estado', 'Comprador', 'Observaciones']
+      ['Material / Descripción', 'Cantidad', 'U.M.', 'Observaciones']
     ];
+
     currentPedidoData.detalles.forEach(d => {
+      const materialName = d.material ? `${d.material.codigo ? d.material.codigo + ' - ' : ''}${d.material.nombre}` : d.descripcionManual;
+      const unit = d.material ? (d.material.unidad?.simbolo || '-') : (d.unidadOverride?.simbolo || '-');
+      const qty = Number(d.cantidad) % 1 === 0 ? parseInt(d.cantidad) : d.cantidad;
+      
       rows.push([
-        d.material ? `${d.material.codigo} - ${d.material.nombre}` : d.descripcionManual,
-        d.cantidad,
-        d.estado,
-        d.comprador?.nombre || 'Sin Asignar',
+        materialName,
+        qty,
+        unit,
         d.observaciones || ''
       ]);
     });
+
+    // Use semicolon as separator for better compatibility with Spanish Excel
     const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + rows.map(e => e.join(";")).join("\n");
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
@@ -1331,55 +1380,237 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('print-pedido-btn')?.addEventListener('click', () => {
     if (!currentPedidoData) return;
     const printWindow = window.open('', '_blank');
+    
+    // Logo / Brand Name
+    const systemName = "OVO_COMPRAS";
+    const reportDate = new Date().toLocaleDateString();
+    const reportTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
     const html = `
+      <!DOCTYPE html>
       <html>
         <head>
           <title>Pedido ${currentPedidoData.numeroSolicitud}</title>
           <style>
-            body { font-family: sans-serif; padding: 20px; color: #333; }
-            h1 { color: #2563eb; border-bottom: 2px solid #eee; padding-bottom: 10px; }
-            .header-info { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-            th { background-color: #f8fafc; }
-            .footer { margin-top: 50px; font-size: 0.8rem; color: #64748b; text-align: center; }
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+            
+            * { box-sizing: border-box; }
+            body { 
+              font-family: 'Inter', -apple-system, sans-serif; 
+              padding: 40px; 
+              color: #1e293b; 
+              line-height: 1.5;
+              background: #fff;
+            }
+            
+            /* Header Styling */
+            .report-header {
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-start;
+              border-bottom: 2px solid #f1f5f9;
+              padding-bottom: 20px;
+              margin-bottom: 30px;
+            }
+            
+            .brand-section h1 {
+              margin: 0;
+              font-size: 24px;
+              color: #0f172a;
+              letter-spacing: -0.02em;
+            }
+            
+            .brand-section h1 span { color: #3b82f6; }
+            
+            .request-meta {
+              text-align: right;
+            }
+            
+            .request-number {
+              font-size: 18px;
+              font-weight: 700;
+              color: #3b82f6;
+              margin-bottom: 4px;
+            }
+            
+            .date-stamp {
+              font-size: 12px;
+              color: #64748b;
+            }
+            
+            /* Summary Grid */
+            .summary-box {
+              display: grid;
+              grid-template-columns: repeat(3, 1fr);
+              gap: 20px;
+              background: #f8fafc;
+              padding: 20px;
+              border-radius: 12px;
+              margin-bottom: 30px;
+            }
+            
+            .summary-item label {
+              display: block;
+              font-size: 11px;
+              text-transform: uppercase;
+              letter-spacing: 0.05em;
+              color: #64748b;
+              font-weight: 600;
+              margin-bottom: 4px;
+            }
+            
+            .summary-item p {
+              margin: 0;
+              font-size: 14px;
+              font-weight: 500;
+              color: #1e293b;
+            }
+            
+            /* Table Styling */
+            table { 
+              width: 100%; 
+              border-collapse: collapse; 
+              margin-top: 10px;
+            }
+            
+            th { 
+              background-color: #f1f5f9; 
+              color: #475569;
+              font-size: 11px;
+              text-transform: uppercase;
+              letter-spacing: 0.05em;
+              font-weight: 700;
+              padding: 12px 15px;
+              text-align: left;
+              border-bottom: 2px solid #e2e8f0;
+            }
+            
+            td { 
+              padding: 14px 15px; 
+              font-size: 13px;
+              border-bottom: 1px solid #f1f5f9;
+              vertical-align: top;
+            }
+            
+            tr:last-child td { border-bottom: none; }
+            
+            .item-name { font-weight: 600; color: #0f172a; }
+            .item-code { font-family: monospace; font-size: 11px; color: #64748b; margin-top: 2px; }
+            .item-obs { font-style: italic; color: #64748b; font-size: 12px; margin-top: 4px; }
+            
+            /* Signatures */
+            .signature-section {
+              margin-top: 60px;
+              display: grid;
+              grid-template-columns: repeat(3, 1fr);
+              gap: 40px;
+            }
+            
+            .sig-box {
+              border-top: 1px solid #cbd5e1;
+              padding-top: 10px;
+              text-align: center;
+              font-size: 12px;
+              color: #64748b;
+            }
+            
+            .footer { 
+              margin-top: 60px; 
+              font-size: 11px; 
+              color: #94a3b8; 
+              text-align: center;
+              border-top: 1px solid #f1f5f9;
+              padding-top: 20px;
+            }
+            
+            @media print {
+              body { padding: 0; }
+              .summary-box { background: #f8fafc !important; -webkit-print-color-adjust: exact; }
+              th { background-color: #f1f5f9 !important; -webkit-print-color-adjust: exact; }
+            }
           </style>
         </head>
         <body>
-          <h1>Pedido de Compra: ${currentPedidoData.numeroSolicitud}</h1>
-          <div class="header-info">
-            <div><strong>Solicitante:</strong> ${currentPedidoData.solicitante?.nombre}</div>
-            <div><strong>Fecha:</strong> ${new Date(currentPedidoData.fechaPedido).toLocaleDateString()}</div>
-            <div><strong>Descripción:</strong> ${currentPedidoData.descripcion}</div>
-            <div><strong>Estado:</strong> ${currentPedidoData.estado}</div>
+          <div class="report-header">
+            <div class="brand-section">
+              <h1><span>OVO</span>_COMPRAS</h1>
+              <p style="margin: 4px 0 0; font-size: 12px; color: #64748b;">Sistema de Gestión de Compras</p>
+            </div>
+            <div class="request-meta">
+              <div class="request-number">SOLICITUD #${currentPedidoData.numeroSolicitud}</div>
+              <div class="date-stamp">Emitido el ${reportDate} a las ${reportTime}</div>
+            </div>
           </div>
+
+          <div class="summary-box">
+            <div class="summary-item">
+              <label>Solicitante</label>
+              <p>${currentPedidoData.solicitante?.nombre || 'N/A'}</p>
+            </div>
+            <div class="summary-item">
+              <label>Sector / Área</label>
+              <p>${currentPedidoData.sector?.nombre || 'General'}</p>
+            </div>
+            <div class="summary-item">
+              <label>Fecha del Pedido</label>
+              <p>${new Date(currentPedidoData.fechaPedido).toLocaleDateString()}</p>
+            </div>
+            <div class="summary-item" style="grid-column: span 3;">
+              <label>Descripción General</label>
+              <p>${currentPedidoData.descripcion || 'Sin descripción'}</p>
+            </div>
+          </div>
+
           <table>
             <thead>
               <tr>
-                <th>Ítem / Material</th>
-                <th>Cantidad</th>
-                <th>Comprador</th>
-                <th>Estado</th>
+                <th style="width: 50%;">Ítem / Material</th>
+                <th style="width: 15%; text-align: center;">Cantidad</th>
+                <th style="width: 15%; text-align: center;">U.M.</th>
+                <th style="width: 20%;">Observación</th>
               </tr>
             </thead>
             <tbody>
-              ${currentPedidoData.detalles.map(d => `
-                <tr>
-                  <td>${d.material ? `(${d.material.codigo}) ${d.material.nombre}` : d.descripcionManual}</td>
-                  <td>${Number(d.cantidad) % 1 === 0 ? parseInt(d.cantidad) : d.cantidad}</td>
-                  <td>${d.comprador?.nombre || '-'}</td>
-                  <td>${d.estado}</td>
-                </tr>
-              `).join('')}
+              ${currentPedidoData.detalles.map(d => {
+                const materialName = d.material ? d.material.nombre : d.descripcionManual;
+                const materialCode = d.material?.codigo || '';
+                const unit = d.material ? (d.material.unidad?.simbolo || '-') : (d.unidadOverride?.simbolo || '-');
+                const qty = Number(d.cantidad) % 1 === 0 ? parseInt(d.cantidad) : d.cantidad;
+                
+                return `
+                  <tr>
+                    <td>
+                      <div class="item-name">${materialName}</div>
+                      ${materialCode ? `<div class="item-code">Cód: ${materialCode}</div>` : ''}
+                    </td>
+                    <td style="text-align: center; font-weight: 600;">${qty}</td>
+                    <td style="text-align: center;">${unit}</td>
+                    <td><div class="item-obs">${d.observaciones || '-'}</div></td>
+                  </tr>
+                `;
+              }).join('')}
             </tbody>
           </table>
-          <div class="footer">Generado por OVO_COMPRAS - ${new Date().toLocaleString()}</div>
+
+          <div class="signature-section">
+            <div class="sig-box">Firma Solicitante</div>
+            <div class="sig-box">Firma Autorizante</div>
+            <div class="sig-box">Departamento Compras</div>
+          </div>
+
+          <div class="footer">
+              Solicitud de Pedido Mantenimiento
+          </div>
         </body>
       </html>
     `;
     printWindow.document.write(html);
     printWindow.document.close();
-    printWindow.print();
+    
+    // Give a small delay for fonts/styles to load before printing
+    setTimeout(() => {
+      printWindow.print();
+    }, 500);
   });
 
   window.updateDetalleInline = async (id, field, value, pedidoId) => {

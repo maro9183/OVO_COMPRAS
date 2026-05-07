@@ -360,9 +360,12 @@
       <section id="usuarios-view" class="view-section">
         <div class="header">
           <h1>Gestión de Usuarios</h1>
+          <button id="add-usuario-btn" class="btn btn-primary" style="width: auto;">
+            <i class="fas fa-plus"></i> Nuevo Usuario
+          </button>
         </div>
-        <div class="dashboard-grid">
-          <div class="glass-panel panel">
+        <div id="usuarios-grid" class="dashboard-grid">
+          <div id="user-list-panel" class="glass-panel panel" style="grid-column: span 2;">
             <h2
               style="font-size: 0.9rem; color: var(--text-2); font-weight: 600; margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--font-mono);">
               Listado de Usuarios</h2>
@@ -372,6 +375,8 @@
                   <tr>
                     <th>ID</th>
                     <th>Nombre</th>
+                    <th>Correo</th>
+                    <th>Teléfono</th>
                     <th>Usuario</th>
                     <th>Rol</th>
                     <th>Sector</th>
@@ -383,15 +388,25 @@
               </table>
             </div>
           </div>
-          <div class="glass-panel panel">
-            <h2
+          <div id="user-form-panel" class="glass-panel panel" style="display: none;">
+            <h2 id="user-form-title"
               style="font-size: 0.9rem; color: var(--text-2); font-weight: 600; margin-bottom: 1.25rem; text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--font-mono);">
-              Gestión de Usuario</h2>
+              Nuevo Usuario</h2>
             <form id="new-usuario-form">
               <input type="hidden" id="usuario-id">
               <div class="input-group">
                 <label>Nombre Completo</label>
                 <input type="text" id="usuario-nombre" required>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="input-group">
+                  <label>Correo Electrónico</label>
+                  <input type="email" id="usuario-correo" placeholder="ejemplo@correo.com">
+                </div>
+                <div class="input-group">
+                  <label>Teléfono / Interno</label>
+                  <input type="text" id="usuario-telefono" placeholder="+54 ... o Interno">
+                </div>
               </div>
               <div class="input-group">
                 <label>Username</label>
@@ -404,8 +419,7 @@
               </div>
               <div class="input-group">
                 <label>Rol</label>
-                <select id="usuario-rol" required
-                  onchange="document.getElementById('buyer-categories-group').style.display = (this.value === 'COMPRADOR' || this.value === 'ADMIN') ? 'block' : 'none'">
+                <select id="usuario-rol" required>
                   <option value="SOLICITANTE">Solicitante</option>
                   <option value="ENCARGADO">Encargado</option>
                   <option value="COMPRADOR">Comprador</option>
@@ -432,7 +446,10 @@
                   <option value="">Ninguno</option>
                 </select>
               </div>
-              <button type="submit" class="btn">Guardar Usuario</button>
+              <div style="display: flex; gap: 0.5rem;">
+                <button type="submit" class="btn btn-primary" style="flex: 1;">Guardar Usuario</button>
+                <button type="button" id="cancel-user-btn" class="btn-secondary" style="padding: 0.75rem;">Cancelar</button>
+              </div>
             </form>
           </div>
         </div>
