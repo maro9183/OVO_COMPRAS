@@ -1,0 +1,102 @@
+name: CI - Validation Pipeline
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  validate-system:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Create .env from example
+        run: cp .env.example .env
+
+      - name: Build and Start Containers
+        run: docker-compose up -d --build
+
+      - name: Wait for Database to be Healthy
+        run: |
+          echo "Waiting for PostgreSQL..."
+          count=0
+          until [ $(docker inspect -f '{{.State.Health.Status}}' ovo_compras_db) == "healthy" ]; do
+            if [ $count -gt 30 ]; then
+              echo "PostgreSQL did not become healthy in time"
+              exit 1
+            fi
+            printf "."
+            sleep 2
+            count=$((count+1))
+          done
+          echo "PostgreSQL is healthy!"
+
+      - name: Wait for App to be Ready
+        run: |
+          echo "Waiting for API to respond..."
+          count=0
+          until curl -s http://localhost:3000/api; do
+            if [ $count -gt 30 ]; then
+              echo "API did not respond in time"
+              docker logs ovo_compras_api
+              exit 1
+            fi
+            printf "."
+            sleep 2
+            count=$((count+1))
+          done
+          echo "API is up and running!"
+
+      - name: Validate Migrations
+        run: |
+          echo "Checking migration logs..."
+          docker logs ovo_compras_api | grep -i "migration"
+          # Fail if migration error is found
+          if docker logs ovo_compras_api | grep -i "error"; then
+            echo "Errors detected in app logs!"
+            # We don't necessarily exit here as some errors might be handled, 
+            # but for CI it's safer to fail if there's a QueryFailedError
+            if docker logs ovo_compras_api | grep -i "QueryFailedError"; then
+              exit 1
+            fi
+          fi
+
+      - name: Validate Database Schema
+        run: |
+          echo "Verifying tables in database..."
+          # List tables and check if core tables exist
+          TABLES=$(docker exec ovo_compras_db psql -U ovo_user -d ovo_compras -t -c "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';")
+          echo "Found tables: $TABLES"
+          echo "$TABLES" | grep -q "usuarios"
+          echo "$TABLES" | grep -q "pedidos"
+          echo "$TABLES" | grep -q "evento_outbox"
+          echo "Database validation successful!"
+
+      - name: API Smoke Test
+        run: |
+          RESPONSE=$(curl -s http://localhost:3000/api)
+          echo "Response: $RESPONSE"
+          if [[ "$RESPONSE" != *"API de OVO_COMPRAS"* ]]; then
+            echo "Unexpected API response"
+            exit 1
+          fi
+
+      - name: Show App Logs on Success (Audit)
+        if: success()
+        run: docker logs ovo_compras_api
+
+      - name: Show App Logs on Failure (Debug)
+        if: failure()
+        run: |
+          echo "--- App Logs ---"
+          docker logs ovo_compras_api
+          echo "--- DB Logs ---"
+          docker logs ovo_compras_db
+
+      - name: Cleanup Environment
+        if: always()
+        run: docker-compose down -v

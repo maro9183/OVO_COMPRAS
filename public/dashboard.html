@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - OVO_COMPRAS</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+  <div class="dashboard-wrapper">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="logo-area">
+        <h2>OVO_COMPRAS</h2>
+      </div>
+      <nav class="nav-menu">
+        <a class="nav-item active" data-view="pedidos-view">
+          <i class="fas fa-shopping-cart"></i> Pedidos
+        </a>
+        <a class="nav-item" data-view="sectores-view">
+          <i class="fas fa-building"></i> Sectores
+        </a>
+        <a class="nav-item" data-view="categorias-view">
+          <i class="fas fa-tags"></i> Categorías
+        </a>
+        <a class="nav-item" data-view="usuarios-view">
+          <i class="fas fa-users"></i> Usuarios
+        </a>
+        <a class="nav-item" data-view="materiales-view">
+          <i class="fas fa-box-open"></i> Materiales
+        </a>
+        <a class="nav-item" data-view="unidades-view">
+          <i class="fas fa-balance-scale"></i> Unidades
+        </a>
+      </nav>
+      <div style="margin-top: auto;">
+        <p style="color: var(--text-muted); font-size: 0.75rem; margin-bottom: 1rem; padding: 0 1rem;">
+          Conectado como:<br><span id="user-name" style="color: #fff; font-weight: 600;">Usuario</span>
+        </p>
+        <button id="logout-btn" class="btn logout-btn" style="width: 100%;">
+          <i class="fas fa-sign-out-alt"></i> Salir
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+
+      <!-- VIEW: PEDIDOS -->
+      <section id="pedidos-view" class="view-section active">
+        <div class="header"
+          style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 1.5rem; gap: 1rem;">
+          <h1 style="margin: 0; font-size: 1.5rem; white-space: nowrap;">Gestión de Pedidos</h1>
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <button id="add-pedido-btn" class="btn btn-primary"
+              style="padding: 0.4rem 0.8rem; font-size: 0.8rem; flex: none; white-space: nowrap; width: auto; margin-bottom: 0;">
+              <i class="fas fa-plus"></i> Nuevo Pedido
+            </button>
+            <button id="toggle-inactive-pedidos" class="btn-secondary" title="Mostrar/Ocultar Inactivos"
+              style="padding: 0.6rem 1rem; font-size: 0.8rem; width: auto;">
+              <i class="fas fa-eye-slash"></i> Inactivos
+            </button>
+          </div>
+        </div>
+
+        <div class="glass-panel panel" style="width: 100%;">
+          <div style="display: flex; gap: 1rem; margin-bottom: 1rem; align-items: center;">
+            <input type="text" id="pedido-search" class="search-input" placeholder="Buscar por N°, desc, solicitante..." style="flex: 2;">
+            <select id="filter-sector" class="search-input" style="flex: 1; height: 42px;">
+              <option value="">Todos los Sectores</option>
+            </select>
+            <select id="filter-estado" class="search-input" style="flex: 1; height: 42px;">
+              <option value="">Todos los Estados</option>
+              <option value="CREADO">CREADO</option>
+              <option value="APROBADO">APROBADO</option>
+              <option value="APROBADO_PARCIAL">APROBADO_PARCIAL</option>
+              <option value="RECHAZADO">RECHAZADO</option>
+              <option value="EN_COMPRA">EN_COMPRA</option>
+              <option value="COMPRADO">COMPRADO</option>
+              <option value="RECIBIDO">RECIBIDO</option>
+            </select>
+          </div>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>N° Solicitud</th>
+                  <th>Solicitante</th>
+                  <th>Sector</th>
+                  <th>Descripción</th>
+                  <th>Observaciones</th>
+                  <th>Estado</th>
+                  <th>Fecha</th>
+                  <th>Activo</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="pedidos-table-body">
+                <tr>
+                  <td colspan="8" style="text-align: center;">Cargando pedidos...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- NEW ORDER MODAL -->
+        <div id="new-pedido-modal" class="modal">
+          <div class="modal-content" style="max-width: 95%;">
+            <div class="modal-header">
+              <h2 id="new-pedido-modal-title">Nuevo Pedido</h2>
+              <button class="btn-icon close-modal-btn"><i class="fas fa-times"></i></button>
+            </div>
+
+            <form id="new-order-form" style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
+              <input type="hidden" id="pedido-id-hidden">
+              <div class="modal-body">
+                <div class="form-header-inputs"
+                  style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+                  <div class="input-group" style="margin-bottom: 0;">
+                    <label for="descripcion">Descripción General</label>
+                    <input type="text" id="descripcion" required placeholder="Ej: Compra mensual de insumos">
+                  </div>
+                  <div class="input-group" style="margin-bottom: 0;">
+                    <label for="observaciones-pedido">Observaciones Generales</label>
+                    <input type="text" id="observaciones-pedido" placeholder="Notas adicionales del pedido">
+                  </div>
+
+                  <div class="input-group" style="margin-bottom: 0.5rem;">
+                    <label for="pedido-sector-select">Sector</label>
+                    <select id="pedido-sector-select" class="search-input"
+                      style="background: rgba(0,0,0,0.1); color: var(--text-light);"></select>
+                  </div>
+
+                  <div class="edit-only-fields" style="display: contents;">
+                    <div class="input-group" style="margin-bottom: 0;">
+                      <label for="pedido-solicitante">Solicitante</label>
+                      <select id="pedido-solicitante" class="search-input"
+                        style="background: rgba(0,0,0,0.1); color: var(--text-light);"></select>
+                    </div>
+                    <div class="input-group" style="margin-bottom: 0;">
+                      <label for="pedido-estado-select">Estado del Pedido</label>
+                      <select id="pedido-estado-select" class="search-input"
+                        style="background: rgba(0,0,0,0.1); color: var(--text-light);">
+                        <option value="CREADO">CREADO</option>
+                        <option value="APROBADO">APROBADO</option>
+                        <option value="APROBADO_PARCIAL">APROBADO_PARCIAL</option>
+                        <option value="RECHAZADO">RECHAZADO</option>
+                        <option value="EN_COMPRA">EN_COMPRA</option>
+                        <option value="COMPRADO">COMPRADO</option>
+                        <option value="RECIBIDO">RECIBIDO</option>
+                      </select>
+                    </div>
+                    <div class="input-group" style="margin-bottom: 0;">
+                      <label for="pedido-fecha">Fecha del Pedido</label>
+                      <input type="date" id="pedido-fecha" class="search-input"
+                        style="background: rgba(0,0,0,0.1); color: var(--text-light);">
+                    </div>
+                  </div>
+                </div>
+
+                <div id="modal-items-section" class="items-container"
+                  style="margin: 0; padding: 0; background: transparent; border: none;">
+                  <div class="items-header"
+                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h3>Detalle de Necesidades</h3>
+                    <button type="button" id="add-item-btn" class="btn-secondary">
+                      <i class="fas fa-plus"></i> Agregar Fila
+                    </button>
+                  </div>
+
+                  <div id="items-list" class="items-list">
+                    <!-- JS populates rows here -->
+                  </div>
+                </div>
+              </div>
+
+              <div class="modal-footer">
+                <p id="order-error"
+                  style="color: #ef4444; font-size: 0.875rem; display: none; align-self: center; margin-right: auto; margin-bottom: 0;">
+                </p>
+                <button type="button" class="btn-secondary close-modal-btn" style="width: auto;">Cancelar</button>
+                <button type="submit" id="new-pedido-submit-btn" class="btn btn-primary"
+                  style="width: auto; padding: 0.75rem 2rem;">Crear Pedido</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- DETALLES MODAL -->
+        <div id="detalles-modal" class="modal">
+          <div class="modal-content" style="max-width: 95%;">
+            <div class="modal-header">
+              <div style="display: flex; flex-direction: column;">
+                <h2 style="margin: 0;">Detalles del Pedido <span id="detalles-pedido-numero"
+                    style="color: var(--primary);"></span></h2>
+                <small id="detalles-pedido-descripcion" style="color: var(--text-muted); font-size: 0.9rem;"></small>
+              </div>
+              <div style="margin-left: auto; display: flex; gap: 0.5rem; align-items: center;">
+                <button id="add-detalle-btn" class="btn btn-primary"
+                  style="padding: 0.4rem 0.8rem; font-size: 0.75rem;">
+                  <i class="fas fa-plus"></i> Agregar Ítem
+                </button>
+                <button id="toggle-inactive-detalles" class="btn btn-icon" title="Mostrar/Ocultar Inactivos"><i
+                    class="fas fa-eye-slash"></i></button>
+                <button id="export-excel-btn" class="btn btn-icon" title="Exportar a Excel"><i
+                    class="fas fa-file-excel"></i></button>
+                <button id="print-pedido-btn" class="btn btn-icon" title="Imprimir Pedido"><i
+                    class="fas fa-print"></i></button>
+                <button class="btn-icon close-modal-btn"><i class="fas fa-times"></i></button>
+              </div>
+            </div>
+
+            <div class="modal-body">
+              <div class="table-container" style="margin-top: 0;">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Material / Desc.</th>
+                      <th style="width: 100px;">Cant.</th>
+                      <th style="width: 100px;">Unidad</th>
+                      <th>Estado</th>
+                      <th>Comprador</th>
+                      <th>Obs.</th>
+                      <th>Activo</th>
+                      <th style="text-align: right;">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="detalles-table-body">
+                    <!-- Rendered by JS -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW: SECTORES -->
+      <section id="sectores-view" class="view-section">
+        <div class="header">
+          <h1>Sectores</h1>
+        </div>
+        <div class="dashboard-grid">
+          <div class="glass-panel panel">
+            <h2>Listado de Sectores</h2>
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Nombre</th>
+                    <th>Activo</th>
+                    <th style="text-align: right;">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="sectores-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="glass-panel panel">
+            <h2>Nuevo Sector</h2>
+            <form id="new-sector-form">
+              <div class="input-group">
+                <label>Nombre del Sector</label>
+                <input type="text" id="sector-name" required placeholder="Ej: Mantenimiento">
+              </div>
+              <button type="submit" class="btn">Guardar Sector</button>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW: CATEGORIAS -->
+      <section id="categorias-view" class="view-section">
+        <div class="header">
+          <h1>Categorías</h1>
+        </div>
+        <div class="dashboard-grid">
+          <div class="glass-panel panel">
+            <h2>Listado de Categorías</h2>
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Nombre</th>
+                    <th>Activo</th>
+                    <th style="text-align: right;">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="categorias-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="glass-panel panel">
+            <h2>Nueva Categoría</h2>
+            <form id="new-categoria-form">
+              <div class="input-group">
+                <label>Nombre de Categoría</label>
+                <input type="text" id="categoria-name" required placeholder="Ej: Limpieza">
+              </div>
+
+              <button type="submit" class="btn">Guardar Categoría</button>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW: UNIDADES -->
+      <section id="unidades-view" class="view-section">
+        <div class="header"
+          style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 1.5rem; gap: 1rem;">
+          <h1 style="margin: 0; font-size: 1.5rem; white-space: nowrap;">Maestro de Unidades</h1>
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <button id="add-unidad-btn" class="btn btn-primary"
+              style="padding: 0.4rem 0.8rem; font-size: 0.8rem; flex: none; white-space: nowrap; width: auto; margin-bottom: 0;">
+              <i class="fas fa-plus"></i> Nueva Unidad
+            </button>
+            <button id="toggle-inactive-unidades" class="btn-secondary" title="Mostrar/Ocultar Inactivos"
+              style="padding: 0.6rem 1rem; font-size: 0.8rem; width: auto;">
+              <i class="fas fa-eye-slash"></i> Inactivos
+            </button>
+          </div>
+        </div>
+
+        <div class="glass-panel panel" style="width: 100%;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Símbolo</th>
+                <th>Descripción</th>
+                <th>Estado</th>
+                <th style="text-align: right;">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="unidades-table-body">
+              <!-- Carga dinámica -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- VIEW: USUARIOS -->
+      <section id="usuarios-view" class="view-section">
+        <div class="header">
+          <h1>Gestión de Usuarios</h1>
+        </div>
+        <div class="dashboard-grid">
+          <div class="glass-panel panel">
+            <h2>Listado de Usuarios</h2>
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Nombre</th>
+                    <th>Usuario</th>
+                    <th>Rol</th>
+                    <th>Sector</th>
+                    <th>Activo</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="usuarios-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="glass-panel panel">
+            <h2>Gestión de Usuario</h2>
+            <form id="new-usuario-form">
+              <input type="hidden" id="usuario-id">
+              <div class="input-group">
+                <label>Nombre Completo</label>
+                <input type="text" id="usuario-nombre" required>
+              </div>
+              <div class="input-group">
+                <label>Username</label>
+                <input type="text" id="usuario-username" required>
+              </div>
+              <div class="input-group">
+                <label>Contraseña (Dejar en blanco para no cambiar)</label>
+                <input type="password" id="usuario-password">
+              </div>
+              <div class="input-group">
+                <label>Rol</label>
+                <select id="usuario-rol" required
+                  onchange="document.getElementById('buyer-categories-group').style.display = (this.value === 'COMPRADOR' || this.value === 'ADMIN') ? 'block' : 'none'">
+                  <option value="SOLICITANTE">Solicitante</option>
+                  <option value="ENCARGADO">Encargado</option>
+                  <option value="COMPRADOR">Comprador</option>
+                  <option value="ADMIN">Administrador</option>
+                </select>
+              </div>
+
+              <div id="buyer-categories-group" class="input-group" style="display: none;">
+                <label>Categorías Asignadas</label>
+                <div id="usuario-categorias-list" style="
+                  max-height: 150px; 
+                  overflow-y: auto; 
+                  background: rgba(0, 0, 0, 0.3); 
+                  border: 1px solid var(--glass-border); 
+                  border-radius: 12px; 
+                  padding: 1rem;
+                  display: grid;
+                  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+                  gap: 0.5rem;
+                ">
+                  <!-- JS populates checkboxes here -->
+                </div>
+              </div>
+              <div class="input-group">
+                <label>Sector</label>
+                <select id="usuario-sector">
+                  <option value="">Ninguno</option>
+                </select>
+              </div>
+              <button type="submit" class="btn">Guardar Usuario</button>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW: MATERIALES -->
+      <section id="materiales-view" class="view-section">
+        <div class="header">
+          <h1>Maestro de Materiales</h1>
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <button id="add-material-btn" class="btn btn-primary" style="width: auto; margin-bottom: 0;">
+              <i class="fas fa-plus"></i> Nuevo Material
+            </button>
+            <button id="toggle-inactive-materiales" class="btn-secondary" title="Mostrar/Ocultar Inactivos"
+              style="width: auto;">
+              <i class="fas fa-eye-slash"></i> Inactivos
+            </button>
+          </div>
+        </div>
+        <div class="glass-panel panel full-width-panel" style="margin-bottom: 1rem;">
+          <div style="display: flex; gap: 1rem;">
+            <input type="text" id="material-search" class="search-input"
+              placeholder="Buscar por código, nombre o categoría...">
+          </div>
+        </div>
+        <div class="glass-panel panel full-width-panel">
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Código</th>
+                  <th>Nombre</th>
+                  <th>Categoría</th>
+                  <th>Unidad</th>
+                  <th>Plano</th>
+                  <th>Descripción</th>
+                  <th>Notas</th>
+                  <th>Activo</th>
+                  <th style="text-align: right;">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="materiales-table-body">
+                <tr>
+                  <td colspan="9" style="text-align: center;">Cargando materiales...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- MODAL: MATERIAL FORM -->
+      <div id="material-modal" class="modal">
+        <div class="modal-content" style="max-width: 700px;">
+          <div class="modal-header">
+            <h2 id="material-modal-title">Nuevo Material</h2>
+            <button type="button" class="btn-icon close-modal-btn"><i class="fas fa-times"></i></button>
+          </div>
+          <form id="material-form" style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
+            <div class="modal-body">
+              <input type="hidden" id="material-id">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="input-group">
+                  <label for="material-codigo">Código de Material</label>
+                  <input type="text" id="material-codigo" required placeholder="Ej: MAT-001">
+                </div>
+                <div class="input-group">
+                  <label for="material-nombre">Nombre de Material</label>
+                  <input type="text" id="material-nombre" required placeholder="Ej: Tornillo 1/4">
+                </div>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="input-group">
+                  <label for="material-categoria">Categoría</label>
+                  <select id="material-categoria">
+                    <!-- Dinámico -->
+                  </select>
+                </div>
+                <div class="input-group">
+                  <label for="material-unidad">Unidad de Medida</label>
+                  <select id="material-unidad">
+                    <!-- Dinámico -->
+                  </select>
+                </div>
+              </div>
+              <div class="input-group">
+                <label for="material-link">Link para Plano (URL)</label>
+                <input type="text" id="material-link" placeholder="https://ejemplo.com/plano.pdf">
+              </div>
+              <div class="input-group">
+                <label for="material-descripcion">Descripción Técnica</label>
+                <textarea id="material-descripcion" rows="3" placeholder="Detalles técnicos, dimensiones, materiales..."
+                  style="width:100%; padding:0.75rem; background:rgba(0,0,0,0.2); border:1px solid var(--glass-border); color:white; border-radius:12px; font-family: inherit;"></textarea>
+              </div>
+              <div class="input-group">
+                <label for="material-notas">Notas / Observaciones</label>
+                <textarea id="material-notas" rows="2" placeholder="Información interna, proveedores sugeridos..."
+                  style="width:100%; padding:0.75rem; background:rgba(0,0,0,0.2); border:1px solid var(--glass-border); color:white; border-radius:12px; font-family: inherit;"></textarea>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn-secondary close-modal-btn">Cancelar</button>
+              <button type="submit" class="btn btn-primary" style="width: auto; padding: 0.75rem 2rem;">Guardar
+                Material</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+    </main>
+  </div>
+  <script src="js/app.js"></script>
+  <!-- Modal: UNIDAD -->
+  <div id="unidad-modal" class="modal">
+    <div class="modal-content" style="max-width: 400px;">
+      <div class="modal-header">
+        <h2 id="unidad-modal-title">Nueva Unidad</h2>
+        <button class="close-modal">&times;</button>
+      </div>
+      <form id="unidad-form">
+        <input type="hidden" id="unidad-id">
+        <div class="form-group">
+          <label for="unidad-simbolo">Símbolo (ej: KG, UN, MTS)</label>
+          <input type="text" id="unidad-simbolo" required maxlength="20">
+        </div>
+        <div class="form-group">
+          <label for="unidad-descripcion">Descripción</label>
+          <input type="text" id="unidad-descripcion" required maxlength="100">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary close-modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+</body>
+
+</html>

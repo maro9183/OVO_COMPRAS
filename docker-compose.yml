@@ -1,0 +1,49 @@
+
+
+services:
+  database:
+    image: postgres:15-alpine
+    container_name: ovo_compras_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ovo_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ovo_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-ovo_compras}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-ovo_user} -d $${POSTGRES_DB:-ovo_compras}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ovo_net
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ovo_compras_api
+    restart: unless-stopped
+    depends_on:
+      database:
+        condition: service_healthy
+    env_file:
+      - .env.example
+    environment:
+      - NODE_ENV=development
+      - POSTGRES_HOST=database
+    ports:
+      - "3000:3000"
+    networks:
+      - ovo_net
+
+networks:
+  ovo_net:
+    driver: bridge
+
+volumes:
+  pg_data:
+    driver: local
