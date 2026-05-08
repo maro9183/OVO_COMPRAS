@@ -1,6 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { Unidad } from '../unidades/unidad.entity';
 import { Categoria } from '../categorias/categoria.entity';
+import { Proveedor } from '../proveedores/proveedor.entity';
 
 @Entity({ name: 'materiales' })
 export class Material {
@@ -21,6 +22,15 @@ export class Material {
   categoria: Categoria;
 
   @Column({ name: 'link_plano', length: 500, nullable: true }) linkPlano: string;
+
+  @Column({ name: 'codigo_proveedor', length: 100, nullable: true }) codigoProveedor: string;
+
+  @ManyToOne(() => Proveedor, { nullable: true })
+  @JoinColumn({ name: 'id_proveedor_principal' })
+  proveedorPrincipal: Proveedor;
+
+  @Column({ type: 'text', array: true, nullable: true })
+  keywords: string[];
 
   @Column({ type: 'text', nullable: true }) notas: string;
 

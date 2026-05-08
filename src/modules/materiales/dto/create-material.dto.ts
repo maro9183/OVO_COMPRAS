@@ -1,9 +1,9 @@
-import { IsString, IsNotEmpty, IsOptional, IsUrl, IsNumber } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsNumber, IsArray } from 'class-validator';
 
 export class CreateMaterialDto {
   @IsString()
-  @IsNotEmpty()
-  codigo: string;
+  @IsOptional()
+  codigo?: string;
 
   @IsString()
   @IsNotEmpty()
@@ -28,4 +28,17 @@ export class CreateMaterialDto {
   @IsNumber()
   @IsOptional()
   unidadId?: number;
+
+  @IsString()
+  @IsOptional()
+  codigoProveedor?: string;
+
+  @IsNumber()
+  @IsOptional()
+  proveedorPrincipalId?: number;
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  keywords?: string[];
 }

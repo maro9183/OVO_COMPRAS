@@ -16,6 +16,7 @@ import { CategoriasModule } from './modules/categorias/categorias.module';
 import { MaterialesModule } from './modules/materiales/materiales.module';
 import { UnidadesModule } from './modules/unidades/unidades.module';
 import { EstadosModule } from './modules/estados/estados.module';
+import { ProveedoresModule } from './modules/proveedores/proveedores.module';
 import { typeOrmConfig } from './config/database.config';
 
 @Module({
@@ -39,6 +40,7 @@ import { typeOrmConfig } from './config/database.config';
     CategoriasModule,
     UnidadesModule,
     EstadosModule,
+    ProveedoresModule,
   ],
   controllers: [AppController],
 })

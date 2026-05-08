@@ -115,20 +115,38 @@ window.addEventListener('DOMContentLoaded', async () => {
 
 
   let appMateriales = [];
+  let appProveedores = [];
   let appUsuarios = [];
   let appCategorias = [];
   let showInactivePedidos = false;
   let showInactiveMateriales = false;
+  let showInactiveProveedores = false;
   let showInactiveDetalles = false;
   let showInactiveUnidades = false;
+
+  const validarCuit = (cuit) => {
+    if (!cuit) return false;
+    const regex = /^\d{2}-\d{8}-\d{1}$/;
+    if (!regex.test(cuit)) return false;
+    const digits = cuit.replace(/-/g, '').split('').map(Number);
+    if (digits.length !== 11) return false;
+    const multipliers = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
+    let sum = 0;
+    for (let i = 0; i < 10; i++) sum += digits[i] * multipliers[i];
+    let dv = 11 - (sum % 11);
+    if (dv === 11) dv = 0;
+    if (dv === 10) dv = 9;
+    return dv === digits[10];
+  };
 
   // Load Selects
   const refreshSelects = async () => {
     try {
-      const [sectoresRes, materialesRes, categoriasRes] = await Promise.all([
+      const [sectoresRes, materialesRes, categoriasRes, proveedoresRes] = await Promise.all([
         fetchApi('/sectores'),
         fetchApi('/materiales'),
-        fetchApi('/categorias')
+        fetchApi('/categorias'),
+        fetchApi('/proveedores')
       ]);
       
       if (sectoresRes.ok) {
@@ -173,6 +191,25 @@ window.addEventListener('DOMContentLoaded', async () => {
         const unidades = await unidadesRes.json();
         if (document.getElementById('material-unidad')) {
           document.getElementById('material-unidad').innerHTML = '<option value="">Sin Unidad</option>' + unidades.map(u => `<option value="${u.id}">${u.simbolo} - ${u.descripcion}</option>`).join('');
+        }
+        if (document.getElementById('quick-material-unidad')) {
+          document.getElementById('quick-material-unidad').innerHTML = '<option value="">Seleccionar...</option>' + unidades.map(u => `<option value="${u.id}">${u.simbolo} - ${u.descripcion}</option>`).join('');
+        }
+      }
+
+      if (proveedoresRes.ok) {
+        appProveedores = await proveedoresRes.json();
+        const provSelect = document.getElementById('material-proveedor');
+        if (provSelect) {
+          provSelect.innerHTML = '<option value="">Sin Proveedor Principal</option>' + 
+            appProveedores.filter(p => p.activo).map(p => `<option value="${p.id}">${p.razonSocial}</option>`).join('');
+        }
+      }
+
+      if (categoriasRes.ok) {
+        // Categories for quick-create as well
+        if (document.getElementById('quick-material-categoria')) {
+          document.getElementById('quick-material-categoria').innerHTML = '<option value="">Sin Categoría</option>' + appCategorias.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
         }
       }
 
@@ -721,11 +758,12 @@ window.addEventListener('DOMContentLoaded', async () => {
     row.style.marginBottom = '0.5rem';
     
     const materialesOptions = '<option value="">(Manual) Escribir descripción...</option>' + 
-      appMateriales.map(m => `<option value="${m.id}">${m.codigo ? m.codigo + ' - ' : ''}${m.nombre}</option>`).join('');
+      appMateriales.filter(m => m.activo).map(m => `<option value="${m.id}">${m.codigo} - ${m.nombre}</option>`).join('') +
+      '<option value="NEW" style="color: var(--primary); font-weight: 600;">＋ Crear nuevo material...</option>';
 
     row.innerHTML = `
       <div class="input-group" style="margin-bottom:0;">
-        <select class="item-material" onchange="this.nextElementSibling.style.display = this.value ? 'none' : 'block'">
+        <select class="item-material">
           ${materialesOptions}
         </select>
         <input type="text" class="item-desc" placeholder="Descripción manual..." style="margin-top:0.25rem;">
@@ -752,7 +790,23 @@ window.addEventListener('DOMContentLoaded', async () => {
     const unitSelect = row.querySelector('.item-unit-override');
 
     matSelect.addEventListener('change', () => {
-      const matId = parseInt(matSelect.value);
+      const val = matSelect.value;
+      
+      if (val === 'NEW') {
+        // Reset select to manual and open quick modal
+        matSelect.value = '';
+        descInput.style.display = 'block';
+        unitSelect.style.display = 'block';
+        unitDisplay.style.display = 'none';
+        
+        // Open quick modal
+        document.getElementById('quick-material-modal').classList.add('active');
+        // Store which select we should update after creation
+        window.lastMaterialSelect = matSelect;
+        return;
+      }
+
+      const matId = parseInt(val);
       if (matId) {
         descInput.style.display = 'none';
         unitSelect.style.display = 'none';
@@ -868,13 +922,12 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     tbody.innerHTML = visibleMateriales.map(m => `
       <tr>
-        <td>${m.codigo}</td>
-        <td>${m.nombre}</td>
+        <td><span class="badge" style="background: var(--bg-3); border: 1px solid var(--border);">${m.codigo}</span></td>
+        <td><strong>${m.nombre}</strong></td>
         <td><span class="badge" style="background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); color: var(--text-muted);">${m.categoria?.nombre || '-'}</span></td>
         <td><span style="font-weight: 600; color: var(--primary);">${m.unidad?.simbolo || '-'}</span></td>
+        <td><small style="color: var(--text-2);">${m.proveedorPrincipal?.razonSocial || '-'}</small></td>
         <td>${m.linkPlano ? `<a href="${m.linkPlano}" target="_blank" class="link-plano"><i class="fas fa-file-pdf"></i> Plano</a>` : '-'}</td>
-        <td><span class="text-truncate" title="${m.descripcion || ''}">${m.descripcion || '-'}</span></td>
-        <td><span class="text-truncate" title="${m.notas || ''}">${m.notas || '-'}</span></td>
         <td><span class="badge ${m.activo ? 'badge-active' : 'badge-pending'}">${m.activo ? 'Sí' : 'No'}</span></td>
         <td style="text-align: right;">
           <div class="actions" style="justify-content: flex-end;">
@@ -907,14 +960,19 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
   };
 
+  let searchTimeout;
   document.getElementById('material-search')?.addEventListener('input', (e) => {
-    const term = e.target.value.toLowerCase();
-    const filtered = allMateriales.filter(m => 
-      m.codigo.toLowerCase().includes(term) || 
-      m.nombre.toLowerCase().includes(term) || 
-      (m.categoria?.nombre || '').toLowerCase().includes(term)
-    );
-    renderMaterialesTable(filtered);
+    clearTimeout(searchTimeout);
+    const term = e.target.value;
+    
+    searchTimeout = setTimeout(async () => {
+      const endpoint = term ? `/materiales/buscar?q=${encodeURIComponent(term)}` : '/materiales';
+      const res = await fetchApi(endpoint);
+      if (res.ok) {
+        allMateriales = await res.json();
+        renderMaterialesTable(allMateriales);
+      }
+    }, 300);
   });
 
   document.getElementById('toggle-inactive-materiales')?.addEventListener('click', (e) => {
@@ -930,6 +988,10 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('add-material-btn').addEventListener('click', () => {
     document.getElementById('material-modal-title').textContent = 'Nuevo Material';
+    document.getElementById('material-codigo-badge').style.display = 'none';
+    document.getElementById('material-codigo').value = '';
+    document.getElementById('material-codigo').disabled = false;
+    document.getElementById('material-codigo-notice').style.display = 'block';
     materialForm.reset();
     document.getElementById('material-id').value = '';
     materialModal.classList.add('active');
@@ -939,13 +1001,16 @@ window.addEventListener('DOMContentLoaded', async () => {
     e.preventDefault();
     const id = document.getElementById('material-id').value;
     const body = {
-      codigo: document.getElementById('material-codigo').value,
+      codigo: document.getElementById('material-codigo').value || null,
       nombre: document.getElementById('material-nombre').value,
-      linkPlano: document.getElementById('material-link').value,
-      descripcion: document.getElementById('material-descripcion').value,
-      notas: document.getElementById('material-notas').value,
+      linkPlano: document.getElementById('material-link').value || null,
+      descripcion: document.getElementById('material-descripcion').value || null,
+      notas: document.getElementById('material-notas').value || null,
       categoriaId: document.getElementById('material-categoria').value ? parseInt(document.getElementById('material-categoria').value) : null,
-      unidadId: document.getElementById('material-unidad').value ? parseInt(document.getElementById('material-unidad').value) : null
+      unidadId: document.getElementById('material-unidad').value ? parseInt(document.getElementById('material-unidad').value) : null,
+      proveedorPrincipalId: document.getElementById('material-proveedor').value ? parseInt(document.getElementById('material-proveedor').value) : null,
+      codigoProveedor: document.getElementById('material-codigo-prov').value || null,
+      keywords: document.getElementById('material-keywords').value ? document.getElementById('material-keywords').value.split(',').map(k => k.trim()) : []
     };
 
     const method = id ? 'PATCH' : 'POST';
@@ -955,6 +1020,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (res.ok) {
       materialModal.classList.remove('active');
       loadMaterialesTable();
+      refreshSelects(); // Important as materials are used in other views
     } else {
       const err = await res.json();
       alert(err.message || 'Error al guardar material');
@@ -966,14 +1032,24 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (res.ok) {
       const m = await res.json();
       document.getElementById('material-modal-title').textContent = 'Editar Material';
+      const badge = document.getElementById('material-codigo-badge');
+      badge.textContent = m.codigo;
+      badge.style.display = 'inline-block';
+
       document.getElementById('material-id').value = m.id;
       document.getElementById('material-codigo').value = m.codigo;
+      document.getElementById('material-codigo').disabled = true;
+      document.getElementById('material-codigo-notice').style.display = 'none';
       document.getElementById('material-nombre').value = m.nombre;
       document.getElementById('material-link').value = m.linkPlano || '';
       document.getElementById('material-descripcion').value = m.descripcion || '';
       document.getElementById('material-notas').value = m.notas || '';
       document.getElementById('material-categoria').value = m.categoria?.id || '';
       document.getElementById('material-unidad').value = m.unidad?.id || '';
+      document.getElementById('material-proveedor').value = m.proveedorPrincipal?.id || '';
+      document.getElementById('material-codigo-prov').value = m.codigoProveedor || '';
+      document.getElementById('material-keywords').value = m.keywords ? m.keywords.join(', ') : '';
+      
       materialModal.classList.add('active');
     }
   };
@@ -984,6 +1060,176 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (confirm(`¿Está seguro de que desea ${action} este material?`)) {
       const res = await fetchApi(`/materiales/${id}`, { method: 'DELETE' });
       if (res.ok) loadMaterialesTable();
+    }
+  };
+
+  // --------------------------------------------------------
+  // PROVEEDORES LOGIC
+  // --------------------------------------------------------
+  const renderProveedoresTable = (proveedores) => {
+    const tbody = document.getElementById('proveedores-table-body');
+    if (!tbody) return;
+
+    if (proveedores.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No hay proveedores.</td></tr>';
+      return;
+    }
+
+    const visible = showInactiveProveedores ? proveedores : proveedores.filter(p => p.activo);
+    
+    tbody.innerHTML = visible.map(p => `
+      <tr class="${!p.activo ? 'inactive-row' : ''}">
+        <td><span class="badge" style="background: var(--bg-3); border: 1px solid var(--border);">${p.codigo}</span></td>
+        <td><strong>${p.razonSocial}</strong>${p.nombreFantasia ? `<br><small style="color: var(--text-3);">${p.nombreFantasia}</small>` : ''}</td>
+        <td>${p.cuit || '-'}</td>
+        <td>${p.contactoNombre || '-'}</td>
+        <td>${p.telefono || p.contactoTelefono || '-'}</td>
+        <td><span class="badge ${p.activo ? 'badge-active' : 'badge-pending'}">${p.activo ? 'Sí' : 'No'}</span></td>
+        <td style="text-align: right;">
+          <div class="actions" style="justify-content: flex-end;">
+            <button class="btn-icon edit-btn" onclick="editProveedor(${p.id})"><i class="fas fa-edit"></i></button>
+            <button class="btn-icon delete-btn" onclick="toggleProveedor(${p.id})" title="${p.activo ? 'Desactivar' : 'Reactivar'}">
+              <i class="fas ${p.activo ? 'fa-ban' : 'fa-check'}"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  };
+
+  const loadProveedoresTable = async () => {
+    try {
+      const res = await fetchApi('/proveedores');
+      if (res.ok) {
+        appProveedores = await res.json();
+        renderProveedoresTable(appProveedores);
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  document.getElementById('proveedor-search')?.addEventListener('input', (e) => {
+    const term = e.target.value.toLowerCase();
+    const filtered = appProveedores.filter(p => 
+      p.razonSocial.toLowerCase().includes(term) || 
+      p.codigo.toLowerCase().includes(term) || 
+      (p.cuit || '').includes(term)
+    );
+    renderProveedoresTable(filtered);
+  });
+
+  document.getElementById('toggle-inactive-proveedores')?.addEventListener('click', (e) => {
+    showInactiveProveedores = !showInactiveProveedores;
+    const btn = e.currentTarget;
+    btn.classList.toggle('btn-active', showInactiveProveedores);
+    btn.querySelector('i').className = showInactiveProveedores ? 'fas fa-eye' : 'fas fa-eye-slash';
+    renderProveedoresTable(appProveedores);
+  });
+
+  const proveedorModal = document.getElementById('proveedor-modal');
+  const proveedorForm = document.getElementById('proveedor-form');
+
+  document.getElementById('add-proveedor-btn')?.addEventListener('click', () => {
+    document.getElementById('proveedor-modal-title').textContent = 'Nuevo Proveedor';
+    document.getElementById('proveedor-codigo-badge').style.display = 'none';
+    document.getElementById('proveedor-codigo').value = '';
+    document.getElementById('proveedor-codigo').disabled = false;
+    document.getElementById('proveedor-codigo-notice').style.display = 'block';
+    proveedorForm.reset();
+    document.getElementById('proveedor-id').value = '';
+    document.getElementById('cuit-validation-msg').textContent = '';
+    proveedorModal.classList.add('active');
+  });
+
+  document.getElementById('proveedor-cuit')?.addEventListener('input', (e) => {
+    const val = e.target.value;
+    const msg = document.getElementById('cuit-validation-msg');
+    if (!val) {
+      msg.textContent = '';
+      e.target.style.borderColor = 'var(--border)';
+      return;
+    }
+    if (validarCuit(val)) {
+      msg.textContent = '✓ CUIT válido';
+      msg.style.color = '#10b981';
+      e.target.style.borderColor = '#10b981';
+    } else {
+      msg.textContent = '✕ CUIT inválido (XX-XXXXXXXX-X)';
+      msg.style.color = '#ef4444';
+      e.target.style.borderColor = '#ef4444';
+    }
+  });
+
+  proveedorForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('proveedor-id').value;
+    const cuit = document.getElementById('proveedor-cuit').value;
+
+    if (cuit && !validarCuit(cuit)) {
+      alert('Por favor, ingrese un CUIT válido.');
+      return;
+    }
+
+    const body = {
+      codigo: document.getElementById('proveedor-codigo').value || null,
+      razonSocial: document.getElementById('proveedor-razon-social').value,
+      cuit: cuit || null,
+      nombreFantasia: document.getElementById('proveedor-nombre-fantasia').value || null,
+      email: document.getElementById('proveedor-email').value || null,
+      direccion: document.getElementById('proveedor-direccion').value || null,
+      contactoNombre: document.getElementById('proveedor-contacto-nombre').value || null,
+      contactoTelefono: document.getElementById('proveedor-contacto-tel').value || null,
+      contactoEmail: document.getElementById('proveedor-contacto-email').value || null,
+      notas: document.getElementById('proveedor-notas').value || null,
+    };
+
+    const method = id ? 'PATCH' : 'POST';
+    const endpoint = id ? `/proveedores/${id}` : '/proveedores';
+
+    const res = await fetchApi(endpoint, { method, body: JSON.stringify(body) });
+    if (res.ok) {
+      proveedorModal.classList.remove('active');
+      loadProveedoresTable();
+      refreshSelects();
+    } else {
+      const err = await res.json();
+      alert(err.message || 'Error al guardar proveedor');
+    }
+  });
+
+  window.editProveedor = async (id) => {
+    const p = appProveedores.find(x => x.id === id);
+    if (p) {
+      document.getElementById('proveedor-modal-title').textContent = 'Editar Proveedor';
+      const badge = document.getElementById('proveedor-codigo-badge');
+      badge.textContent = p.codigo;
+      badge.style.display = 'inline-block';
+      
+      document.getElementById('proveedor-id').value = p.id;
+      document.getElementById('proveedor-codigo').value = p.codigo;
+      document.getElementById('proveedor-codigo').disabled = true;
+      document.getElementById('proveedor-codigo-notice').style.display = 'none';
+      document.getElementById('proveedor-razon-social').value = p.razonSocial;
+      document.getElementById('proveedor-cuit').value = p.cuit || '';
+      document.getElementById('proveedor-nombre-fantasia').value = p.nombreFantasia || '';
+      document.getElementById('proveedor-email').value = p.email || '';
+      document.getElementById('proveedor-direccion').value = p.direccion || '';
+      document.getElementById('proveedor-contacto-nombre').value = p.contactoNombre || '';
+      document.getElementById('proveedor-contacto-tel').value = p.contactoTelefono || '';
+      document.getElementById('proveedor-contacto-email').value = p.contactoEmail || '';
+      document.getElementById('proveedor-notas').value = p.notas || '';
+      
+      document.getElementById('proveedor-cuit').dispatchEvent(new Event('input'));
+      proveedorModal.classList.add('active');
+    }
+  };
+
+  window.toggleProveedor = async (id) => {
+    if (confirm('¿Cambiar estado de este proveedor?')) {
+      const res = await fetchApi(`/proveedores/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        loadProveedoresTable();
+        refreshSelects();
+      }
     }
   };
 
@@ -1122,6 +1368,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       if (targetView === 'sectores-view') loadSectoresTable();
       if (targetView === 'categorias-view') loadCategoriasTable();
       if (targetView === 'materiales-view') loadMaterialesTable();
+      if (targetView === 'proveedores-view') loadProveedoresTable();
       if (targetView === 'usuarios-view') loadUsuariosTable();
       if (targetView === 'unidades-view') loadUnidadesTable();
     });
@@ -1650,6 +1897,43 @@ window.addEventListener('DOMContentLoaded', async () => {
       }
     }
   };
+
+  // --------------------------------------------------------
+  // QUICK MATERIAL LOGIC
+  // --------------------------------------------------------
+  document.getElementById('quick-material-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('quick-material-submit-btn');
+    btn.disabled = true;
+
+    const body = {
+      nombre: document.getElementById('quick-material-nombre').value,
+      unidadId: parseInt(document.getElementById('quick-material-unidad').value),
+      categoriaId: document.getElementById('quick-material-categoria').value ? parseInt(document.getElementById('quick-material-categoria').value) : null
+    };
+
+    try {
+      const res = await fetchApi('/materiales/quick', { method: 'POST', body: JSON.stringify(body) });
+      if (res.ok) {
+        const material = await res.json();
+        // Refresh materials list globally
+        await refreshSelects();
+        
+        // Update the select that triggered this
+        if (window.lastMaterialSelect) {
+          window.lastMaterialSelect.value = material.id;
+          window.lastMaterialSelect.dispatchEvent(new Event('change'));
+        }
+        
+        document.getElementById('quick-material-modal').classList.remove('active');
+        document.getElementById('quick-material-form').reset();
+      } else {
+        const err = await res.json();
+        alert(err.message || 'Error al crear material');
+      }
+    } catch (e) { console.error(e); }
+    btn.disabled = false;
+  });
 
   // Init
   refreshSelects();

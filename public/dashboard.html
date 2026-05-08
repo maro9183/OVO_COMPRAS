@@ -36,6 +36,9 @@
         <a class="nav-item" data-view="materiales-view">
           <i class="fas fa-box-open"></i> Materiales
         </a>
+        <a class="nav-item" data-view="proveedores-view">
+          <i class="fas fa-truck"></i> Proveedores
+        </a>
         <a class="nav-item" data-view="unidades-view">
           <i class="fas fa-balance-scale"></i> Unidades
         </a>
@@ -135,7 +138,7 @@
                   style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
                   <div class="input-group" style="margin-bottom: 0;">
                     <label for="descripcion">Descripción General</label>
-                    <input type="text" id="descripcion" required placeholder="Ej: Compra mensual de insumos">
+                    <input type="text" id="descripcion" required placeholder="Proyecto o destino de la compra">
                   </div>
                   <div class="input-group" style="margin-bottom: 0;">
                     <label for="observaciones-pedido">Observaciones Generales</label>
@@ -448,7 +451,8 @@
               </div>
               <div style="display: flex; gap: 0.5rem;">
                 <button type="submit" class="btn btn-primary" style="flex: 1;">Guardar Usuario</button>
-                <button type="button" id="cancel-user-btn" class="btn-secondary" style="padding: 0.75rem;">Cancelar</button>
+                <button type="button" id="cancel-user-btn" class="btn-secondary"
+                  style="padding: 0.75rem;">Cancelar</button>
               </div>
             </form>
           </div>
@@ -473,7 +477,7 @@
           <div class="search-wrapper">
             <i class="fas fa-search"></i>
             <input type="text" id="material-search" class="search-input"
-              placeholder="Buscar por código, nombre o categoría...">
+              placeholder="Buscar por código, nombre, categoría o keywords...">
           </div>
         </div>
 
@@ -486,17 +490,64 @@
                   <th>Nombre</th>
                   <th>Categoría</th>
                   <th>Unidad</th>
+                  <th>Proveedor</th>
                   <th>Plano</th>
-                  <th>Descripción</th>
-                  <th>Notas</th>
                   <th>Activo</th>
                   <th style="text-align: right;">Acciones</th>
                 </tr>
               </thead>
               <tbody id="materiales-table-body">
                 <tr>
-                  <td colspan="9" style="text-align: center; color: var(--text-3); padding: 2rem;">
+                  <td colspan="8" style="text-align: center; color: var(--text-3); padding: 2rem;">
                     <i class="fas fa-circle-notch fa-spin" style="margin-right: 0.5rem;"></i>Cargando materiales...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════════ VIEW: PROVEEDORES ═══════════════ -->
+      <section id="proveedores-view" class="view-section">
+        <div class="header">
+          <h1>Gestión de Proveedores</h1>
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <button id="add-proveedor-btn" class="btn btn-primary" style="width: auto;">
+              <i class="fas fa-plus"></i> Nuevo Proveedor
+            </button>
+            <button id="toggle-inactive-proveedores" class="btn-secondary" title="Mostrar/Ocultar Inactivos">
+              <i class="fas fa-eye-slash"></i> Inactivos
+            </button>
+          </div>
+        </div>
+
+        <div class="glass-panel panel" style="margin-bottom: 1rem;">
+          <div class="search-wrapper">
+            <i class="fas fa-search"></i>
+            <input type="text" id="proveedor-search" class="search-input"
+              placeholder="Buscar por razón social, CUIT o código...">
+          </div>
+        </div>
+
+        <div class="glass-panel panel">
+          <div class="table-container" style="margin-top: 0;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Código</th>
+                  <th>Razón Social</th>
+                  <th>CUIT</th>
+                  <th>Contacto</th>
+                  <th>Teléfono</th>
+                  <th>Activo</th>
+                  <th style="text-align: right;">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="proveedores-table-body">
+                <tr>
+                  <td colspan="7" style="text-align: center; color: var(--text-3); padding: 2rem;">
+                    <i class="fas fa-circle-notch fa-spin" style="margin-right: 0.5rem;"></i>Cargando proveedores...
                   </td>
                 </tr>
               </tbody>
@@ -509,7 +560,11 @@
       <div id="material-modal" class="modal">
         <div class="modal-content" style="max-width: 680px;">
           <div class="modal-header">
-            <h2 id="material-modal-title">Nuevo Material</h2>
+            <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+              <h2 id="material-modal-title" style="margin: 0;">Nuevo Material</h2>
+              <span id="material-codigo-badge" class="badge"
+                style="display: none; align-self: flex-start; font-family: var(--font-mono); font-size: 0.75rem; background: var(--bg-3); border: 1px solid var(--border);"></span>
+            </div>
             <button type="button" class="btn-icon close-modal-btn"><i class="fas fa-times"></i></button>
           </div>
           <form id="material-form" style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
@@ -518,10 +573,12 @@
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                 <div class="input-group">
                   <label for="material-codigo">Código de Material</label>
-                  <input type="text" id="material-codigo" required placeholder="Ej: MAT-001">
+                  <input type="text" id="material-codigo" placeholder="MAT-XXXXX">
+                  <small id="material-codigo-notice" style="color: var(--text-3); font-size: 0.7rem;">Si se deja vacío,
+                    se generará automáticamente.</small>
                 </div>
                 <div class="input-group">
-                  <label for="material-nombre">Nombre de Material</label>
+                  <label for="material-nombre">Nombre de Material *</label>
                   <input type="text" id="material-nombre" required placeholder="Ej: Tornillo 1/4">
                 </div>
               </div>
@@ -531,35 +588,161 @@
                   <select id="material-categoria"></select>
                 </div>
                 <div class="input-group">
-                  <label for="material-unidad">Unidad de Medida</label>
-                  <select id="material-unidad"></select>
+                  <label for="material-unidad">Unidad de Medida *</label>
+                  <select id="material-unidad" required></select>
                 </div>
               </div>
+              <div class="input-group">
+                <label for="material-proveedor">Proveedor Principal</label>
+                <select id="material-proveedor">
+                  <option value="">Sin Proveedor</option>
+                </select>
+              </div>
+
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="input-group">
+                  <label for="material-codigo-prov">Código Proveedor</label>
+                  <input type="text" id="material-codigo-prov" placeholder="Ej: REF-9912">
+                </div>
+                <div class="input-group">
+                  <label for="material-keywords">Keywords (separadas por coma)</label>
+                  <input type="text" id="material-keywords" placeholder="ej: acero, perno, 10mm">
+                </div>
+              </div>
+
               <div class="input-group">
                 <label for="material-link">Link para Plano (URL)</label>
                 <input type="text" id="material-link" placeholder="https://ejemplo.com/plano.pdf">
               </div>
+
               <div class="input-group">
                 <label for="material-descripcion">Descripción Técnica</label>
-                <textarea id="material-descripcion" rows="3" placeholder="Detalles técnicos, dimensiones, materiales..."
+                <textarea id="material-descripcion" rows="2" placeholder="Detalles técnicos, dimensiones, materiales..."
                   style="width:100%; padding:0.65rem 0.875rem; background:var(--bg-3); border:1px solid var(--border); color:var(--text-1); border-radius:var(--radius-md); font-family: var(--font-body); font-size: 0.875rem; resize: vertical; transition: all var(--transition);"></textarea>
               </div>
+
               <div class="input-group">
                 <label for="material-notas">Notas / Observaciones</label>
-                <textarea id="material-notas" rows="2" placeholder="Información interna, proveedores sugeridos..."
+                <textarea id="material-notas" rows="1" placeholder="Información interna..."
                   style="width:100%; padding:0.65rem 0.875rem; background:var(--bg-3); border:1px solid var(--border); color:var(--text-1); border-radius:var(--radius-md); font-family: var(--font-body); font-size: 0.875rem; resize: vertical; transition: all var(--transition);"></textarea>
               </div>
             </div>
+
             <div class="modal-footer">
               <button type="button" class="btn-secondary close-modal-btn">Cancelar</button>
-              <button type="submit" class="btn btn-primary" style="width: auto; padding: 0.65rem 2rem;">Guardar
-                Material</button>
+              <button type="submit" id="material-submit-btn" class="btn btn-primary"
+                style="width: auto; padding: 0.65rem 2rem;">Guardar Material</button>
             </div>
           </form>
         </div>
       </div>
 
-    </main>
+  <!-- MODAL: PROVEEDOR FORM -->
+  <div id="proveedor-modal" class="modal">
+    <div class="modal-content" style="max-width: 720px;">
+      <div class="modal-header">
+        <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+          <h2 id="proveedor-modal-title" style="margin: 0;">Nuevo Proveedor</h2>
+          <span id="proveedor-codigo-badge" class="badge"
+            style="display: none; align-self: flex-start; font-family: var(--font-mono); font-size: 0.75rem; background: var(--bg-3); border: 1px solid var(--border);"></span>
+        </div>
+        <button type="button" class="btn-icon close-modal-btn"><i class="fas fa-times"></i></button>
+      </div>
+      <form id="proveedor-form" style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
+        <div class="modal-body">
+          <input type="hidden" id="proveedor-id">
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
+            <div class="input-group">
+              <label for="proveedor-codigo">Código</label>
+              <input type="text" id="proveedor-codigo" placeholder="PROV-XXXXX">
+              <small id="proveedor-codigo-notice" style="color: var(--text-3); font-size: 0.7rem;">Vacío =
+                Autogenerado</small>
+            </div>
+            <div class="input-group">
+              <label for="proveedor-razon-social">Razón Social *</label>
+              <input type="text" id="proveedor-razon-social" required placeholder="Ej: Aceros S.A.">
+            </div>
+            <div class="input-group">
+              <label for="proveedor-cuit">CUIT *</label>
+              <input type="text" id="proveedor-cuit" required placeholder="30-12345678-9">
+              <small id="cuit-validation-msg" style="display: block; margin-top: 0.25rem; font-size: 0.7rem;"></small>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="input-group">
+              <label for="proveedor-nombre-fantasia">Nombre Fantasía</label>
+              <input type="text" id="proveedor-nombre-fantasia" placeholder="Ej: La Ferretería">
+            </div>
+            <div class="input-group">
+              <label for="proveedor-email">Email General</label>
+              <input type="email" id="proveedor-email" placeholder="ventas@empresa.com">
+            </div>
+          </div>
+          <div class="input-group">
+            <label for="proveedor-direccion">Dirección</label>
+            <input type="text" id="proveedor-direccion" placeholder="Calle 123, Ciudad">
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
+            <div class="input-group">
+              <label>Contacto Nombre</label>
+              <input type="text" id="proveedor-contacto-nombre" placeholder="Juan Perez">
+            </div>
+            <div class="input-group">
+              <label>Contacto Tel.</label>
+              <input type="text" id="proveedor-contacto-tel" placeholder="11 5555-5555">
+            </div>
+            <div class="input-group">
+              <label>Contacto Email</label>
+              <input type="email" id="proveedor-contacto-email" placeholder="juan@empresa.com">
+            </div>
+          </div>
+          <div class="input-group">
+            <label for="proveedor-notas">Notas / Información Adicional</label>
+            <textarea id="proveedor-notas" rows="2"
+              style="width:100%; padding:0.65rem 0.875rem; background:var(--bg-3); border:1px solid var(--border); color:var(--text-1); border-radius:var(--radius-md); font-family: var(--font-body); font-size: 0.875rem; resize: vertical;"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary close-modal-btn">Cancelar</button>
+          <button type="submit" id="proveedor-submit-btn" class="btn btn-primary"
+            style="width: auto; padding: 0.65rem 2rem;">Guardar Proveedor</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: ALTA RÁPIDA MATERIAL -->
+  <div id="quick-material-modal" class="modal">
+    <div class="modal-content" style="max-width: 450px;">
+      <div class="modal-header">
+        <h2>Alta Rápida de Material</h2>
+        <button type="button" class="btn-icon close-modal-btn"><i class="fas fa-times"></i></button>
+      </div>
+      <form id="quick-material-form">
+        <div class="modal-body">
+          <div class="input-group">
+            <label for="quick-material-nombre">Nombre de Material *</label>
+            <input type="text" id="quick-material-nombre" required placeholder="Ej: Tornillo 1/4">
+          </div>
+          <div class="input-group">
+            <label for="quick-material-unidad">Unidad de Medida *</label>
+            <select id="quick-material-unidad" required></select>
+          </div>
+          <div class="input-group">
+            <label for="quick-material-categoria">Categoría</label>
+            <select id="quick-material-categoria"></select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary close-modal-btn">Cancelar</button>
+          <button type="submit" id="quick-material-submit-btn" class="btn btn-primary"
+            style="width: auto; padding: 0.65rem 1.5rem;">Crear Material</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  </main>
   </div>
 
   <script src="js/app.js"></script>
